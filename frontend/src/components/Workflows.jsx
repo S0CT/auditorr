@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { Check, Loader2, Radar, RotateCcw } from 'lucide-react'
 import { api } from '../api'
 import { formatBytes } from '../utils'
 
@@ -290,11 +291,71 @@ function GrabButton({ state, onGrab, onReset, errorMsg }) {
   return <button onClick={onReset} title={errorMsg || 'Grab failed — click to retry'} style={{ fontSize: 10, fontFamily: 'var(--mono)', padding: '2px 8px', borderRadius: 5, cursor: 'pointer', border: '1px solid var(--red)50', background: 'var(--red)10', color: 'var(--red)' }}>Failed ↺</button>
 }
 
+// ── qui dir-scan button ──────────────────────────────────────────────────────
+function QuiScanButton({ state, onScan, onReset, errorMsg, scanInfo }) {
+  const baseStyle = {
+    fontSize: 10,
+    fontFamily: 'var(--mono)',
+    padding: '2px 8px',
+    borderRadius: 5,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 4,
+    height: 22,
+    whiteSpace: 'nowrap',
+  }
+  const runId = scanInfo?.response?.runId
+  if (state === 'idle') {
+    return (
+      <button
+        onClick={onScan}
+        title="Scan existing media in qui"
+        style={{ ...baseStyle, cursor: 'pointer', border: '1px solid var(--blue)50', background: 'var(--blue)10', color: 'var(--blue)' }}
+      >
+        <Radar size={12} strokeWidth={2} />
+        qui
+      </button>
+    )
+  }
+  if (state === 'scanning') {
+    return (
+      <span style={{ ...baseStyle, color: 'var(--text-dim)' }}>
+        <Loader2 size={12} strokeWidth={2} style={{ animation: 'spin 0.8s linear infinite' }} />
+        qui
+      </span>
+    )
+  }
+  if (state === 'scanned') {
+    return (
+      <span
+        title={runId ? `qui dir-scan run ${runId}` : 'qui dir-scan queued'}
+        style={{ ...baseStyle, color: 'var(--green)' }}
+      >
+        <Check size={12} strokeWidth={2.5} />
+        queued
+      </span>
+    )
+  }
+  return (
+    <button
+      onClick={onReset}
+      title={errorMsg || 'qui scan failed — click to retry'}
+      style={{ ...baseStyle, cursor: 'pointer', border: '1px solid var(--red)50', background: 'var(--red)10', color: 'var(--red)' }}
+    >
+      <RotateCcw size={12} strokeWidth={2} />
+      qui
+    </button>
+  )
+}
+
 // ── Result item ───────────────────────────────────────────────────────────────
 function ResultItem({ item }) {
   // grabStates: { [guid]: 'idle' | 'grabbing' | 'grabbed' | 'error' }
   const [grabStates,    setGrabStates]    = useState({})
   const [grabErrors,    setGrabErrors]    = useState({})
+  const [quiScanState,  setQuiScanState]  = useState('idle')
+  const [quiScanError,  setQuiScanError]  = useState(null)
+  const [quiScanInfo,   setQuiScanInfo]   = useState(null)
   const [importStatus,  setImportStatus]  = useState(null)   // null | watching | importing | done | error
   const [importMessage, setImportMessage] = useState(null)
   const importPollRef    = useRef(null)
@@ -358,6 +419,27 @@ function ResultItem({ item }) {
       setGrabStates(s => ({ ...s, [key]: 'error' }))
     }
   }, [grabStates, item, startImportWatch])
+
+  const doQuiScan = useCallback(async (e) => {
+    e.stopPropagation()
+    if (!item.path || quiScanState === 'scanning' || quiScanState === 'scanned') return
+    setQuiScanState('scanning')
+    setQuiScanError(null)
+    setQuiScanInfo(null)
+    try {
+      const resp = await api.quiDirScan({ path: item.path })
+      setQuiScanInfo(resp.qui)
+      setQuiScanState('scanned')
+    } catch (err) {
+      setQuiScanError(err.message)
+      setQuiScanState('error')
+    }
+  }, [item.path, quiScanState])
+
+  const resetQuiScan = useCallback((e) => {
+    e.stopPropagation()
+    setQuiScanState('idle')
+  }, [])
 
   const resetGrab = useCallback((key, e) => {
     e.stopPropagation()
@@ -449,6 +531,18 @@ function ResultItem({ item }) {
             </div>
           )}
         </div>
+
+        {item.path && (
+          <div style={{ flexShrink: 0 }}>
+            <QuiScanButton
+              state={quiScanState}
+              errorMsg={quiScanError}
+              scanInfo={quiScanInfo}
+              onScan={doQuiScan}
+              onReset={resetQuiScan}
+            />
+          </div>
+        )}
 
         {/* Service badge link */}
         {item.arr_service && (

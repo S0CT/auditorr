@@ -87,6 +87,7 @@ export const api = {
   acquireReleases: (params) => req('/workflows/acquire_releases?' + new URLSearchParams(params)),
   saveAcquirePrefs: (prefs) => req('/workflows/acquire_prefs', { method: 'POST', body: JSON.stringify(prefs) }),
   grabRelease:        (params) => req('/workflows/grab_release',      { method: 'POST', body: JSON.stringify(params) }),
+  quiDirScan:         (params) => req('/workflows/qui_dir_scan',      { method: 'POST', body: JSON.stringify(params) }),
   watchImport:        (params) => req('/workflows/watch_import',      { method: 'POST', body: JSON.stringify(params) }),
   watchImportStatus:  (jobId)  => req('/workflows/watch_import/status?job_id=' + jobId),
   watchImportActive:  ()       => req('/workflows/watch_import/active'),

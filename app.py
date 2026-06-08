@@ -34,6 +34,7 @@ from audit import run_audit_process, process_health_metrics, compute_upload_stat
 from arr import _test_arr_connection, arr_rescan, arr_search, fetch_arr_media_index, test_arr_connections, fetch_arr_indexers, fetch_release_matrix, grab_release, normalize_arr_connections, poll_queue_until_clear, force_manual_import_by_id, get_arr_file_id
 from scripts import generate_script
 from media_server_exclusions import normalize_media_server_presets
+from qui_workflows import QuiWorkflowError, trigger_qui_dir_scan
 from watchdog_handler import restart_watchdog, start_watchdog, _scheduled_audit_loop
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
@@ -898,6 +899,23 @@ def workflows_grab_release():
     except Exception as e:
         log.warning("Grab failed for %s/%s: %s", service, guid, e)
         return jsonify({"status": "error", "message": str(e)}), 400
+
+
+@app.route('/api/workflows/qui_dir_scan', methods=['POST'])
+@require_auth
+def workflows_qui_dir_scan():
+    data = request.json or {}
+    path = data.get('path', '')
+    cfg = db_load_config()
+    try:
+        result = trigger_qui_dir_scan(cfg, path)
+        return jsonify({"status": "success", "qui": result})
+    except QuiWorkflowError as e:
+        log.warning("qui dir-scan failed for %s: %s", path, e)
+        return jsonify({"status": "error", "message": str(e)}), 400
+    except Exception as e:
+        log.exception("Unexpected qui dir-scan failure for %s", path)
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 _gen_state = {'job': None}
