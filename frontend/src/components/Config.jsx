@@ -208,6 +208,7 @@ export default function Config({ lastAuditTime, isScanning, onConfigSaved, theme
         api_key: conn.api_key === '__stored__' ? '' : (conn.api_key || ''),
         media_path: conn.media_path || '',
         local_media_path: conn.local_media_path || '',
+        qui_download_client: conn.qui_download_client || '',
       })))
       setArrTestStatus(null)
       setWatchdogEnabled(c.WATCHDOG_ENABLED !== false)
@@ -334,9 +335,10 @@ export default function Config({ lastAuditTime, isScanning, onConfigSaved, theme
           api_key: conn.api_key || '',
           media_path: (conn.media_path || '').trim(),
           local_media_path: (conn.local_media_path || '').trim(),
+          qui_download_client: (conn.qui_download_client || '').trim(),
         }
       })
-      .filter(conn => conn.base_url || conn.api_key || conn.name || conn.media_path || conn.local_media_path)
+      .filter(conn => conn.base_url || conn.api_key || conn.name || conn.media_path || conn.local_media_path || conn.qui_download_client)
   }
 
   const handleTestArrConnections = async () => {
@@ -423,6 +425,7 @@ export default function Config({ lastAuditTime, isScanning, onConfigSaved, theme
         api_key: '',
         media_path: '',
         local_media_path: '',
+        qui_download_client: '',
       },
     ])
     setArrTestStatus(null)
@@ -742,6 +745,7 @@ export default function Config({ lastAuditTime, isScanning, onConfigSaved, theme
                     <div style={compactGrid}>
                       <Field label="Arr Media Path" placeholder="/movies or /tv" hint="Path as this Arr instance sees its library." value={conn.media_path} onChange={v => setArrConnection(index, 'media_path', v)} />
                       <Field label="Auditorr Media Path" placeholder="/data/media/movies" hint="Matching path inside auditorr. Leave blank when paths already match." value={conn.local_media_path} onChange={v => setArrConnection(index, 'local_media_path', v)} />
+                      <Field label="qui Download Client" placeholder={service === 'radarr' ? 'Movies 4K' : 'TV'} hint="Optional. Must match this Arr instance's download client name in qui directory filters. Set the qBit category on the matching qui Dir Scan directory." value={conn.qui_download_client} onChange={v => setArrConnection(index, 'qui_download_client', v)} />
                     </div>
                   </div>
                 )

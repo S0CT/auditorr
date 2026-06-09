@@ -336,6 +336,18 @@ function QuiScanButton({ state, onScan, onReset, errorMsg, scanInfo }) {
       </span>
     )
   }
+  if (state === 'skipped') {
+    return (
+      <button
+        onClick={onReset}
+        title={errorMsg || 'qui skipped this scan — click to retry'}
+        style={{ ...baseStyle, cursor: 'pointer', border: '1px solid var(--yellow)50', background: 'var(--yellow)10', color: 'var(--yellow)' }}
+      >
+        <RotateCcw size={12} strokeWidth={2} />
+        skipped
+      </button>
+    )
+  }
   return (
     <button
       onClick={onReset}
@@ -427,14 +439,23 @@ function ResultItem({ item }) {
     setQuiScanError(null)
     setQuiScanInfo(null)
     try {
-      const resp = await api.quiDirScan({ path: item.path })
+      const resp = await api.quiDirScan({
+        path: item.path,
+        service: item.arr_service,
+        connection_id: item.arr_connection_id,
+      })
       setQuiScanInfo(resp.qui)
-      setQuiScanState('scanned')
+      if (resp.qui?.response?.skipped) {
+        setQuiScanError(resp.qui.response.reason || 'qui skipped this scan')
+        setQuiScanState('skipped')
+      } else {
+        setQuiScanState('scanned')
+      }
     } catch (err) {
       setQuiScanError(err.message)
       setQuiScanState('error')
     }
-  }, [item.path, quiScanState])
+  }, [item.path, item.arr_service, item.arr_connection_id, quiScanState])
 
   const resetQuiScan = useCallback((e) => {
     e.stopPropagation()

@@ -302,6 +302,23 @@ class ArrConnectionTests(unittest.TestCase):
             ],
         )
 
+    def test_arr_connection_preserves_qui_download_client_name(self):
+        cfg = {
+            "ARR_CONNECTIONS": [{
+                "id": "radarr-4k",
+                "service": "radarr",
+                "name": "4K Radarr",
+                "base_url": "http://radarr-4k.local:7878/",
+                "api_key": "two",
+                "qui_download_client": "Movies 4K",
+            }],
+        }
+
+        self.assertEqual(
+            normalize_arr_connections(cfg)[0]["qui_download_client"],
+            "Movies 4K",
+        )
+
     def test_arr_search_uses_matching_multi_instance(self):
         cfg = {
             "ARR_CONNECTIONS": [

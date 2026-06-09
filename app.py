@@ -906,9 +906,11 @@ def workflows_grab_release():
 def workflows_qui_dir_scan():
     data = request.json or {}
     path = data.get('path', '')
+    service = data.get('service', '')
+    connection_id = data.get('connection_id', '')
     cfg = db_load_config()
     try:
-        result = trigger_qui_dir_scan(cfg, path)
+        result = trigger_qui_dir_scan(cfg, path, service=service, connection_id=connection_id)
         return jsonify({"status": "success", "qui": result})
     except QuiWorkflowError as e:
         log.warning("qui dir-scan failed for %s: %s", path, e)

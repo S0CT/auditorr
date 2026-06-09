@@ -3,6 +3,8 @@ import os
 import urllib.error
 import urllib.request
 
+from arr import normalize_arr_connections
+
 
 class QuiWorkflowError(Exception):
     """Raised when a qui workflow request cannot be safely prepared or sent."""
@@ -47,10 +49,35 @@ def resolve_media_scan_path(cfg, requested_path):
     return candidate_abs
 
 
-def trigger_dir_scan(cfg, scan_path, timeout=30):
+def _dir_scan_payload(scan_path, service=None, download_client=None):
+    client = str(download_client or "").strip()
+    if not client:
+        return {"path": scan_path}
+
+    service = str(service or "").strip().lower()
+    if service == "radarr":
+        return {"downloadClient": client, "movie": {"folderPath": scan_path}}
+    if service == "sonarr":
+        return {"downloadClient": client, "series": {"path": scan_path}}
+    raise QuiWorkflowError("service must be sonarr or radarr when download_client is set")
+
+
+def _arr_download_client(cfg, service=None, connection_id=None):
+    connection_id = str(connection_id or "").strip()
+    if not connection_id:
+        return ""
+
+    service = str(service or "").strip().lower() or None
+    for conn in normalize_arr_connections(cfg, service=service):
+        if conn.get("id") == connection_id:
+            return conn.get("qui_download_client", "")
+    return ""
+
+
+def trigger_dir_scan(cfg, scan_path, timeout=30, service=None, download_client=None):
     host, api_key = _require_qui_config(cfg)
     url = host + "/api/dir-scan/webhook/scan"
-    payload = json.dumps({"path": scan_path}).encode("utf-8")
+    payload = json.dumps(_dir_scan_payload(scan_path, service=service, download_client=download_client)).encode("utf-8")
     req = urllib.request.Request(
         url,
         data=payload,
@@ -93,5 +120,11 @@ def trigger_dir_scan(cfg, scan_path, timeout=30):
     }
 
 
-def trigger_qui_dir_scan(cfg, requested_path):
-    return trigger_dir_scan(cfg, resolve_media_scan_path(cfg, requested_path))
+def trigger_qui_dir_scan(cfg, requested_path, service=None, connection_id=None):
+    download_client = _arr_download_client(cfg, service=service, connection_id=connection_id)
+    return trigger_dir_scan(
+        cfg,
+        resolve_media_scan_path(cfg, requested_path),
+        service=service,
+        download_client=download_client,
+    )

@@ -84,6 +84,34 @@ class QuiWorkflowTests(unittest.TestCase):
         self.assertEqual(json.loads(request.data.decode("utf-8")), {"path": "/data/media/Movie/Movie.mkv"})
 
     @patch("qui_workflows.urllib.request.urlopen")
+    def test_trigger_dir_scan_posts_arr_payload_when_download_client_is_known(self, mock_urlopen):
+        class FakeResponse:
+            status = 202
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+            def read(self):
+                return json.dumps({"runId": 42}).encode("utf-8")
+
+        mock_urlopen.return_value = FakeResponse()
+
+        trigger_dir_scan({
+            "TORRENT_SOURCE": "qui",
+            "QUI_HOST": "http://qui.local:7476/",
+            "QUI_API_KEY": "secret",
+        }, "/data/media/Movies4K/Movie/Movie.mkv", service="radarr", download_client="Movies 4K")
+
+        request = mock_urlopen.call_args.args[0]
+        self.assertEqual(json.loads(request.data.decode("utf-8")), {
+            "downloadClient": "Movies 4K",
+            "movie": {"folderPath": "/data/media/Movies4K/Movie/Movie.mkv"},
+        })
+
+    @patch("qui_workflows.urllib.request.urlopen")
     def test_trigger_dir_scan_surfaces_qui_http_errors(self, mock_urlopen):
         mock_urlopen.side_effect = urllib.error.HTTPError(
             "http://qui/api/dir-scan/webhook/scan",
@@ -114,6 +142,28 @@ class QuiWorkflowTests(unittest.TestCase):
         self.assertEqual(result["response"]["runId"], 42)
         posted_path = mock_trigger.call_args.args[1]
         self.assertEqual(posted_path, os.path.abspath(os.path.join(media_root, "Movie", "Movie.mkv")))
+
+    @patch("qui_workflows.trigger_dir_scan")
+    def test_trigger_qui_dir_scan_uses_arr_connection_download_client(self, mock_trigger):
+        mock_trigger.return_value = {"status_code": 202, "response": {"runId": 42}}
+        with tempfile.TemporaryDirectory() as media_root:
+            trigger_qui_dir_scan({
+                "TORRENT_SOURCE": "qui",
+                "QUI_HOST": "http://qui",
+                "QUI_API_KEY": "secret",
+                "MEDIA_PATH": media_root,
+                "ARR_CONNECTIONS": [{
+                    "id": "radarr-4k",
+                    "service": "radarr",
+                    "name": "4K Radarr",
+                    "base_url": "http://radarr:7878",
+                    "api_key": "radarr-key",
+                    "qui_download_client": "Movies 4K",
+                }],
+            }, os.path.join("Movie", "Movie.mkv"), service="radarr", connection_id="radarr-4k")
+
+        self.assertEqual(mock_trigger.call_args.kwargs["service"], "radarr")
+        self.assertEqual(mock_trigger.call_args.kwargs["download_client"], "Movies 4K")
 
 
 class QuiWorkflowRouteTests(unittest.TestCase):
@@ -155,13 +205,22 @@ class QuiWorkflowRouteTests(unittest.TestCase):
 
         app.config["TESTING"] = True
         with app.test_client() as client:
-            response = client.post("/api/workflows/qui_dir_scan", json={"path": "Movie/Movie.mkv"})
+            response = client.post("/api/workflows/qui_dir_scan", json={
+                "path": "Movie/Movie.mkv",
+                "service": "radarr",
+                "connection_id": "radarr-4k",
+            })
 
         self.assertEqual(response.status_code, 200)
         data = response.get_json()
         self.assertEqual(data["status"], "success")
         self.assertEqual(data["qui"]["response"]["runId"], 42)
-        mock_trigger.assert_called_once_with(mock_config.return_value, "Movie/Movie.mkv")
+        mock_trigger.assert_called_once_with(
+            mock_config.return_value,
+            "Movie/Movie.mkv",
+            service="radarr",
+            connection_id="radarr-4k",
+        )
 
     @patch("app.trigger_qui_dir_scan", side_effect=QuiWorkflowError("QUI_HOST is required"))
     @patch("app.db_load_config", return_value={"TORRENT_SOURCE": "qui", "MEDIA_PATH": "/data/media"})

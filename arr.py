@@ -487,6 +487,7 @@ def _normalize_arr_connection(raw):
         'remote_path': str(raw.get('remote_path') or raw.get('remotePath') or '').strip(),
         'media_path': str(raw.get('media_path') or raw.get('mediaPath') or '').strip(),
         'local_media_path': str(raw.get('local_media_path') or raw.get('localMediaPath') or '').strip(),
+        'qui_download_client': str(raw.get('qui_download_client') or raw.get('quiDownloadClient') or '').strip(),
     }
 
 

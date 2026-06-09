@@ -479,6 +479,8 @@ def validate_config(data):
                     errors.append(f"ARR_CONNECTIONS[{i}].media_path is too long")
                 if conn.get('local_media_path') and len(str(conn.get('local_media_path'))) > 300:
                     errors.append(f"ARR_CONNECTIONS[{i}].local_media_path is too long")
+                if conn.get('qui_download_client') and len(str(conn.get('qui_download_client'))) > 120:
+                    errors.append(f"ARR_CONNECTIONS[{i}].qui_download_client is too long")
 
     return errors
 
